@@ -1,12 +1,23 @@
 package helix
 
 import (
+	"strconv"
 	"time"
 )
 
 const (
 	STREAMURL = "https://api.twitch.tv/helix/streams"
 )
+
+type GetStreamsOpts struct {
+	Before    string
+	After     string
+	First     int
+	GameId    string
+	Language  string
+	UserId    string
+	UserLogin string
+}
 
 type streamResp struct {
 	Data []streamData
@@ -25,20 +36,21 @@ type streamData struct {
 	ViewerCount int    `json:"viewer_count"`
 }
 
-func (c *Client) GetStreams() (*streamResp, error) {
-	resp, err := c.client.R().
-		SetResult(&streamResp{}).
-		Get(STREAMURL)
-
+func (c *Client) GetStreams(opts *GetStreamsOpts) (*streamResp, error) {
+	params := map[string]string{
+		"before":     opts.Before,
+		"after":      opts.After,
+		"first":      strconv.Itoa(opts.First),
+		"game_id":    opts.GameId,
+		"language":   opts.Language,
+		"user_id":    opts.UserId,
+		"user_login": opts.UserLogin,
+	}
+	resp, err := c.getWithParams(params, STREAMURL, &streamResp{})
 	if err != nil {
 		return nil, err
 	}
 
-	if e := resp.Error(); e != nil {
-		return nil, e.(*helixError)
-	}
-
 	r := resp.Result().(*streamResp)
-
 	return r, nil
 }

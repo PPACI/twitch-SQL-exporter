@@ -35,3 +35,21 @@ func newRestyClient(opts *ClientOpts, ctx context.Context) *resty.Client {
 	restyClient.SetError(&helixError{})
 	return restyClient
 }
+
+func (c *Client) requestWithParams(params map[string]string, outputType interface{}) *resty.Request {
+	cleanedParams := getCleanMap(params)
+	return c.client.R().SetQueryParams(cleanedParams).SetResult(outputType)
+}
+
+func (c *Client) getWithParams(params map[string]string, url string, outputType interface{}) (*resty.Response, error) {
+	req := c.requestWithParams(params, outputType)
+	res, err := req.Get(url)
+	if err != nil {
+		return &resty.Response{}, err
+	}
+
+	if e := res.Error(); e != nil {
+		return &resty.Response{}, e.(*helixError)
+	}
+	return res, nil
+}

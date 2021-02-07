@@ -42,7 +42,7 @@ func main() {
 
 	twitchClient := helix.NewClient(&clientOpts, context.Background())
 
-	streams, err := twitchClient.GetStreams()
+	streams, err := twitchClient.GetStreams(&helix.GetStreamsOpts{First: 100})
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -50,5 +50,6 @@ func main() {
 	for _, stream := range streams.Data {
 		log.Debugf("%+v\n", stream)
 	}
+	log.Debugln(len(streams.Data))
 
 }
