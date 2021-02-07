@@ -47,7 +47,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	for _, stream := range streams {
+	for _, stream := range streams.Data {
 		log.Debugf("%+v\n", stream)
 	}
+
 }
