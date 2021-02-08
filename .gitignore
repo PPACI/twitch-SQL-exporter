@@ -22,3 +22,4 @@
 
 # Build
 twitch-SQL-exporter
+*.db
