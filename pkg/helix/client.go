@@ -13,15 +13,10 @@ type ClientOpts struct {
 }
 
 type Client struct {
-	client *resty.Client
+	*resty.Client
 }
 
 func NewClient(opts *ClientOpts, ctx context.Context) *Client {
-	restyClient := newRestyClient(opts, ctx)
-	return &Client{client: restyClient}
-}
-
-func newRestyClient(opts *ClientOpts, ctx context.Context) *resty.Client {
 	oauth2Config := &clientcredentials.Config{
 		ClientID:     opts.ClientID,
 		ClientSecret: opts.ClientSecret,
@@ -33,16 +28,22 @@ func newRestyClient(opts *ClientOpts, ctx context.Context) *resty.Client {
 	restyClient.SetHeader("Client-Id", opts.ClientID)
 	restyClient.SetTransport(oauthClient.Transport)
 	restyClient.SetError(&helixError{})
-	return restyClient
+
+	return &Client{Client: restyClient}
 }
 
-func (c *Client) requestWithParams(params map[string]string, outputType interface{}) *resty.Request {
-	cleanedParams := getCleanMap(params)
-	return c.client.R().SetQueryParams(cleanedParams).SetResult(outputType)
+func (c *Client) prepare(params map[string]string, outputType interface{}) *resty.Request {
+	p := map[string]string{}
+	for k, v := range params {
+		if v != "" {
+			p[k] = v
+		}
+	}
+	return c.Client.R().SetQueryParams(p).SetResult(outputType)
 }
 
 func (c *Client) getWithParams(params map[string]string, url string, outputType interface{}) (*resty.Response, error) {
-	req := c.requestWithParams(params, outputType)
+	req := c.prepare(params, outputType)
 	res, err := req.Get(url)
 	if err != nil {
 		return &resty.Response{}, err
