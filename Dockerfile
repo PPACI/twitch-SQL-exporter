@@ -10,6 +10,7 @@ COPY main.go .
 RUN go build -o twitch-sql-exporter .
 
 FROM debian:buster-slim
+RUN apt update && apt install -yq ca-certificates
 
 COPY --from=builder /app/twitch-sql-exporter /usr/local/bin/twitch-sql-exporter
 
