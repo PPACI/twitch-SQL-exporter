@@ -8,14 +8,14 @@ import (
 type StreamRecord struct {
 	gorm.Model
 
-	StreamId    string
+	StreamId    string `gorm:"index"`
 	GameId      string
-	GameName    string
+	GameName    string `gorm:"index"`
 	Language    string
 	StartedAt   time.Time
 	Title       string
-	UserName    string
+	UserName    string `gorm:"index"`
 	UserLogin   string
-	UserId      string
+	UserId      string `gorm:"index"`
 	ViewerCount int
 }
