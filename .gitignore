@@ -26,3 +26,4 @@ twitch-SQL-exporter
 
 # Private Deploy
 .deploy
+makefile
