@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"os"
+	"sync"
 	"time"
 	"twitch-SQL-exporter/pkg/helix"
 	"twitch-SQL-exporter/pkg/sql"
@@ -85,28 +86,43 @@ func pollData(twitchClient *helix.Client, db *gorm.DB, minViewer int) {
 		log.Fatalln(err)
 	}
 	var streamRecords []sql.StreamRecord
+	wg := sync.WaitGroup{}
+	m := sync.Mutex{}
 	for _, stream := range streams.Data {
-		log.Debugf("%+v\n", stream)
-		if stream.ViewerCount < minViewer {
-			log.WithField("name", stream.UserName).
-				WithField("viewer", stream.ViewerCount).
-				Debugln("Skipped due to not enough viewer")
-			continue
-		}
-		streamRecord := sql.StreamRecord{
-			StreamId:    stream.Id,
-			GameId:      stream.GameId,
-			GameName:    stream.GameName,
-			Language:    stream.Language,
-			StartedAt:   stream.StartedAt,
-			Title:       stream.Title,
-			UserName:    stream.UserName,
-			UserLogin:   stream.UserLogin,
-			UserId:      stream.UserId,
-			ViewerCount: stream.ViewerCount,
-		}
-		streamRecords = append(streamRecords, streamRecord)
+		stream := stream
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Debugf("%+v\n", stream)
+			if stream.ViewerCount < minViewer {
+				log.WithField("name", stream.UserName).
+					WithField("viewer", stream.ViewerCount).
+					Debugln("Skipped due to not enough viewer")
+				return
+			}
+			follow, err := twitchClient.GetFollows(&helix.GetFollowsOpts{UserId: stream.UserId})
+			if err != nil {
+				log.WithField("name", stream.UserName).Errorln(err)
+			}
+			streamRecord := sql.StreamRecord{
+				StreamId:      stream.Id,
+				GameId:        stream.GameId,
+				GameName:      stream.GameName,
+				Language:      stream.Language,
+				StartedAt:     stream.StartedAt,
+				Title:         stream.Title,
+				UserName:      stream.UserName,
+				UserLogin:     stream.UserLogin,
+				UserId:        stream.UserId,
+				ViewerCount:   stream.ViewerCount,
+				FollowerCount: follow.Total,
+			}
+			m.Lock()
+			streamRecords = append(streamRecords, streamRecord)
+			m.Unlock()
+		}()
 	}
+	wg.Wait()
 	log.Infof("Fetched stream records")
 	results := db.Create(streamRecords)
 	log.Debugln("affected", results.RowsAffected, "rows")
