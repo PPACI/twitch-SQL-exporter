@@ -18,6 +18,8 @@ type appConfig struct {
 
 	dbType string
 	dsn    string
+
+	minViewers int
 }
 
 func getAppConfig() *appConfig {
@@ -27,6 +29,7 @@ func getAppConfig() *appConfig {
 	flag.StringVar(&config.clientSecret, "clientSecret", "", "Twitch client Secret.")
 	flag.StringVar(&config.dbType, "dbType", "sqlite", "Type of DB. Support sqlite,postgres.")
 	flag.StringVar(&config.dsn, "dataSourceName", "", "DB Data Source Name.")
+	flag.IntVar(&config.minViewers, "minViewer", 500, "Minimum viewer for record")
 	flag.BoolVar(&config.debug, "debug", false, "Enable debug mode.")
 	flag.Parse()
 	flag.VisitAll(func(f *flag.Flag) {
@@ -69,14 +72,14 @@ func main() {
 	twitchClient := helix.NewClient(&clientOpts, context.Background())
 
 	log.Infoln("Start polling loop")
-	pollData(twitchClient, db)
+	pollData(twitchClient, db, config.minViewers)
 	for range time.Tick(time.Minute) {
-		pollData(twitchClient, db)
+		pollData(twitchClient, db, config.minViewers)
 	}
 
 }
 
-func pollData(twitchClient *helix.Client, db *gorm.DB) {
+func pollData(twitchClient *helix.Client, db *gorm.DB, minViewer int) {
 	streams, err := twitchClient.GetStreams(&helix.GetStreamsOpts{Language: "fr", First: 100})
 	if err != nil {
 		log.Fatalln(err)
@@ -84,6 +87,12 @@ func pollData(twitchClient *helix.Client, db *gorm.DB) {
 	var streamRecords []sql.StreamRecord
 	for _, stream := range streams.Data {
 		log.Debugf("%+v\n", stream)
+		if stream.ViewerCount < minViewer {
+			log.WithField("name", stream.UserName).
+				WithField("viewer", stream.ViewerCount).
+				Debugln("Skipped due to not enough viewer")
+			continue
+		}
 		streamRecord := sql.StreamRecord{
 			StreamId:    stream.Id,
 			GameId:      stream.GameId,
@@ -98,6 +107,7 @@ func pollData(twitchClient *helix.Client, db *gorm.DB) {
 		}
 		streamRecords = append(streamRecords, streamRecord)
 	}
-	log.Infoln("Fetched stream records")
-	db.Create(streamRecords)
+	log.Infof("Fetched stream records")
+	results := db.Create(streamRecords)
+	log.Debugln("affected", results.RowsAffected, "rows")
 }
